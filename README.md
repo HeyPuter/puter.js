@@ -1,4 +1,5 @@
 <h3 align="center">Puter.js</h3>
+<h4 align="center">Cloud and AI features right in your frontend app!</h4>
 <p align="center">
     <a href="https://docs.puter.com/playground/"><strong>« LIVE DEMO »</strong></a>
     <br />
