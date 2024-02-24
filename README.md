@@ -18,6 +18,7 @@
 ## Installation
 ```
 git clone https://github.com/HeyPuter/puter.js.git
+cd puter.js
 npm install
 ```
 
