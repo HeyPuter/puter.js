@@ -1,5 +1,5 @@
 <h3 align="center">Puter.js</h3>
-<h4 align="center">Cloud and AI features right in your frontend app!</h4>
+<h4 align="center">The official JavaScript SDK for Puter.com. Cloud and AI features right from your frontend code!</h4>
 <p align="center">
     <a href="https://docs.puter.com/playground/"><strong>« LIVE DEMO »</strong></a>
     <br />
