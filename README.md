@@ -4,7 +4,7 @@
     <a href="https://docs.puter.com/playground/"><strong>« LIVE DEMO »</strong></a>
     <br />
     <br />
-    <a href="https://docs.puter.com">Docs</a>
+    <a href="https://docs.puter.com" target="_blank">Docs</a>
     ·
     <a href="https://puter.com">Puter.com</a>
     ·
