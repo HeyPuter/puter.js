@@ -15,6 +15,12 @@
     <a href="https://twitter.com/HeyPuter">X (Twitter)</a>
 </p>
 
+## Installation
+```
+git clone https://github.com/HeyPuter/puter.js.git
+npm install
+```
+
 ## Run development server
 
 ```
