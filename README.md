@@ -28,8 +28,6 @@ npm install
 npm start
 ```
 
-With every change made to the source code, the development server will automatically re-build the project as well.
-
 ## Build
 
 ```
