@@ -35,7 +35,7 @@ npm run build
 ```
 
 ### Example
-Make sure the development server is running. 
+Make sure the development server is running. Place the following HTML file in the root of the project.
 
 ```html
 <html>
