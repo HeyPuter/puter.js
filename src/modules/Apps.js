@@ -117,7 +117,6 @@ class Apps{
 
     getDeveloperProfile = function(...args){
         let options;
-        const xhr = new XMLHttpRequest();
 
         // If first argument is an object, it's the options
         if (typeof args[0] === 'object' && args[0] !== null) {
@@ -131,35 +130,29 @@ class Apps{
         }
 
         return new Promise((resolve, reject) => {
-            xhr.open("get", (puter.APIOrigin + '/get-dev-profile'), true);
-            xhr.setRequestHeader("Authorization", "Bearer " + puter.authToken);
-            xhr.setRequestHeader("Content-Type", "application/json;charset=UTF-8");
+            let options;
 
-            xhr.addEventListener('load', function(e){
-                const resp = utils.parseResponse(this.responseText);
-                // error
-                if(this.status !== 200 && this.status !== 201){
-                    // if error callback is provided, call it
-                    if(options.error && typeof options.error === 'function')
-                        options.error(resp)
-                    // reject promise
-                    return reject(resp)
-                }
-                // success
-                else{
-                    // if success callback is provided, call it
-                    if(options.success && typeof options.success === 'function')
-                        options.success(resp);
-                    // resolve with success
-                    return resolve(resp);
-                }
-            });
-
-            // send request
-            xhr.send();
+            // If first argument is an object, it's the options
+            if (typeof args[0] === 'object' && args[0] !== null) {
+                options = args[0];
+            } else {
+                // Otherwise, we assume separate arguments are provided
+                options = {
+                    success: args[0],
+                    error: args[1],
+                };
+            }
+    
+            return new Promise((resolve, reject) => {
+                const xhr = utils.initXhr('/get-dev-profile', puter.APIOrigin, puter.authToken, 'get');
+    
+                // set up event handlers for load and error events
+                utils.setupXhrEventHandlers(xhr, options.success, options.error, resolve, reject);
+    
+                xhr.send();
+            })
         });
     }
-
 }
 
 export default Apps;
