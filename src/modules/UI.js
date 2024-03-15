@@ -520,6 +520,64 @@ class UI{
         })
     }
 
+    setWindowWidth = function(width, callback) {
+        return new Promise((resolve) => {
+            const msg_id = this.#messageID++;
+            this.messageTarget?.postMessage({
+                msg: "setWindowWidth",
+                width: width,
+                appInstanceID: this.appInstanceID,
+                uuid: msg_id
+            }, '*');
+            //register callback
+            this.#callbackFunctions[msg_id] = resolve;
+        })
+    }
+
+    setWindowHeight = function(height, callback) {
+        return new Promise((resolve) => {
+            const msg_id = this.#messageID++;
+            this.messageTarget?.postMessage({
+                msg: "setWindowHeight",
+                height: height,
+                appInstanceID: this.appInstanceID,
+                uuid: msg_id
+            }, '*');
+            //register callback
+            this.#callbackFunctions[msg_id] = resolve;
+        })
+    }
+
+    setWindowSize = function(width, height, callback) {
+        return new Promise((resolve) => {
+            const msg_id = this.#messageID++;
+            this.messageTarget?.postMessage({
+                msg: "setWindowSize",
+                width: width,
+                height: height,
+                appInstanceID: this.appInstanceID,
+                uuid: msg_id
+            }, '*');
+            //register callback
+            this.#callbackFunctions[msg_id] = resolve;
+        })
+    }
+
+    setWindowPosition = function(x, y, callback) {
+        return new Promise((resolve) => {
+            const msg_id = this.#messageID++;
+            this.messageTarget?.postMessage({
+                msg: "setWindowPosition",
+                x: x,
+                y: y,
+                appInstanceID: this.appInstanceID,
+                uuid: msg_id
+            }, '*');
+            //register callback
+            this.#callbackFunctions[msg_id] = resolve;
+        })
+    }
+
     /**
      * Asynchronously extracts entries from DataTransferItems, like files and directories.
      * 
@@ -676,7 +734,6 @@ class UI{
     }
 
     createWindow = function (options, callback) {
-
         return new Promise((resolve) => {
             const msg_id = this.#messageID++;
             this.messageTarget?.postMessage({
