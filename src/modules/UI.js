@@ -726,6 +726,7 @@ class UI{
                 app_name: appName,
                 args: args,
                 appInstanceID: this.appInstanceID,
+                uuid: msg_id,
             }, '*');
 
             //register callback
