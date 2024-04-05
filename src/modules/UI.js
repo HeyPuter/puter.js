@@ -98,6 +98,12 @@ class UI{
     // Holds the unique app instance ID that is provided by the host environment
     appInstanceID;
 
+    // Holds the unique app instance ID for the parent (if any), which is provided by the host environment
+    parentInstanceID;
+
+    // If we have a parent app, holds an AppConnection to it
+    #parentAppConnection = null;
+
     // Holds the callback functions for the various events 
     // that can be triggered by the host environment's messages.
     #callbackFunctions = [];
@@ -125,8 +131,9 @@ class UI{
         this.#callbackFunctions[msg_id] = resolve;
     }
 
-    constructor (appInstanceID, appID, env) {
+    constructor (appInstanceID, parentInstanceID, appID, env) {
         this.appInstanceID = appInstanceID;
+        this.parentInstanceID = parentInstanceID;
         this.appID = appID;
         this.env = env;
 
@@ -135,6 +142,10 @@ class UI{
         }
         else if(this.env === 'gui'){
             return;
+        }
+
+        if (this.parentInstanceID) {
+            this.#parentAppConnection = new AppConnection(this.messageTarget, this.appInstanceID, this.parentInstanceID);
         }
 
         // Tell the host environment that this app is using the Puter SDK and is ready to receive messages,
@@ -332,28 +343,32 @@ class UI{
                     }
                 }
                 else if(e.data.msg === 'colorPicked'){
-                    //excute callback
+                    // execute callback
                     this.#callbackFunctions[e.data.original_msg_id](e.data.color);
                 }
                 else if(e.data.msg === 'fontPicked'){
-                    //excute callback
+                    // execute callback
                     this.#callbackFunctions[e.data.original_msg_id](e.data.font); 
                 }
                 else if(e.data.msg === 'alertResponded'){
-                    //excute callback
+                    // execute callback
                     this.#callbackFunctions[e.data.original_msg_id](e.data.response); 
                 }
                 else if(e.data.msg === 'promptResponded'){
-                    //excute callback
+                    // execute callback
                     this.#callbackFunctions[e.data.original_msg_id](e.data.response); 
                 }
-
                 else if(e.data.msg === "fileSaved"){
-                    //excute callback
+                    // execute callback
                     this.#callbackFunctions[e.data.original_msg_id](new FSItem(e.data.saved_file)); 
                 }
+                else if (e.data.msg === 'childAppLaunched') {
+                    // execute callback with a new AppConnection to the child
+                    const connection = new AppConnection(this.messageTarget, this.appInstanceID, e.data.child_instance_id);
+                    this.#callbackFunctions[e.data.original_msg_id](connection);
+                }
                 else{
-                    //excute callback
+                    // execute callback
                     this.#callbackFunctions[e.data.original_msg_id](e.data);
                 }
 
@@ -725,7 +740,8 @@ class UI{
             }
         });
     }
-    
+
+    // Returns a Promise<AppConnection>
     launchApp = function(appName, args, callback) {
         return new Promise((resolve) => {
             // if appName is an object and args is not set, then appName is actually args
@@ -736,6 +752,10 @@ class UI{
 
             this.#postMessageWithCallback('launchApp', resolve, { app_name: appName, args });
         })
+    }
+
+    parentApp() {
+        return this.#parentAppConnection;
     }
 
     createWindow = function (options, callback) {

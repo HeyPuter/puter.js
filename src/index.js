@@ -39,6 +39,9 @@ window.puter = (function() {
         // Holds the unique app instance ID that is provided by the host environment
         appInstanceID;
 
+        // Holds the unique app instance ID for the parent (if any), which is provided by the host environment
+        parentInstanceID;
+
         // Expose the FSItem class
         static FSItem = FSItem;
 
@@ -81,6 +84,12 @@ window.puter = (function() {
             // instance that sent the message and communicate back to it.
             if(URLParams.has('puter.app_instance_id')){
                 this.appInstanceID = decodeURIComponent(URLParams.get('puter.app_instance_id'));
+            }
+
+            // Try to extract parentInstanceID from the URL. If another app launched this app instance, parentInstanceID
+            // holds its instance ID, and is used to communicate with that parent app.
+            if(URLParams.has('puter.parent_instance_id')){
+                this.parentInstanceID = decodeURIComponent(URLParams.get('puter.parent_instance_id'));
             }
 
             // Try to extract `puter.app.id` from the URL. `puter.app.id` is the unique ID of the app.
@@ -163,7 +172,7 @@ window.puter = (function() {
             // FileSystem
             this.fs = new FileSystem(this.authToken, this.APIOrigin, this.appID, this.env);
             // UI
-            this.ui = new UI(this.appInstanceID, this.appID, this.env);
+            this.ui = new UI(this.appInstanceID, this.parentInstanceID, this.appID, this.env);
             // Hosting
             this.hosting = new Hosting(this.authToken, this.APIOrigin, this.appID, this.env);
             // Apps
