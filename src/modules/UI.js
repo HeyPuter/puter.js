@@ -1,6 +1,91 @@
 import FSItem from './FSItem.js';
 import PuterDialog from './PuterDialog.js';
 
+// AppConnection provides an API for interacting with another app.
+// It's returned by UI methods, and cannot be constructed directly by user code.
+// For basic usage:
+// - postMessage(message)        Send a message to the target app
+// - on('message', callback)     Listen to messages from the target app
+class AppConnection {
+    static EVENTS = [
+        'message', // The target sent us something with postMessage()
+        // TODO: 'close' event when the target is closed
+    ];
+
+    // Map of eventName -> array of listeners
+    #eventListeners = (() => {
+        const map = new Map();
+        for (let eventName of AppConnection.EVENTS) {
+            map[eventName] = [];
+        }
+        return map;
+    })();
+
+    #emit(eventName, data) {
+        if (!AppConnection.EVENTS.includes(eventName)) {
+            console.error(`Event name '${eventName}' not supported`);
+            return;
+        }
+        this.#eventListeners[eventName].forEach((listener) => {
+            listener(data);
+        });
+    }
+
+    constructor(messageTarget, appInstanceID, targetAppInstanceID) {
+        this.messageTarget = messageTarget;
+        this.appInstanceID = appInstanceID;
+        this.targetAppInstanceID = targetAppInstanceID;
+
+        window.addEventListener('message', event => {
+            if (event.data.msg !== 'messageToApp') return;
+            if (event.data.appInstanceID !== this.targetAppInstanceID) {
+                // Message is from a different AppConnection; ignore it.
+                return;
+            }
+            if (event.data.targetAppInstanceID !== this.appInstanceID) {
+                console.error(`AppConnection received message intended for wrong app! appInstanceID=${this.appInstanceID}, target=${event.data.targetAppInstanceID}`);
+                return;
+            }
+            console.log(`AppConnection in ${this.appInstanceID} received message from ${event.data.appInstanceID}!`);
+            this.#emit('message', event.data.contents);
+        });
+    }
+
+    postMessage(message) {
+        console.log(`AppConnection in ${this.appInstanceID} sending message to ${this.targetAppInstanceID}!`);
+        this.messageTarget.postMessage({
+            msg: 'messageToApp',
+            appInstanceID: this.appInstanceID,
+            targetAppInstanceID: this.targetAppInstanceID,
+            targetAppOrigin: '*', // TODO: Specify this somehow
+            contents: message,
+        }, '*'); // TODO: Ensure targetOrigin is Puter GUI specifically?
+    }
+
+    // See AppConnection.EVENTS list for possible events
+    on(eventName, callback) {
+        if (!AppConnection.EVENTS.includes(eventName)) {
+            console.error(`Event name '${eventName}' not supported`);
+            return;
+        }
+        this.#eventListeners[eventName].push(callback);
+    }
+
+    off(eventName, callback) {
+        if (!AppConnection.EVENTS.includes(eventName)) {
+            console.error(`Event name '${eventName}' not supported`);
+            return;
+        }
+        const listeners = this.#eventListeners[eventName];
+        const index = listeners.indexOf(callback)
+        if (index !== -1) {
+            listeners.splice(index, 1);
+        }
+    }
+
+    // TODO: Implement close()
+}
+
 class UI{
     // Used to generate a unique message id for each message sent to the host environment
     // we start from 1 because 0 is falsy and we want to avoid that for the message id
