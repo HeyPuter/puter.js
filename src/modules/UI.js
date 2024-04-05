@@ -26,6 +26,20 @@ class UI{
 
     #onLaunchedWithItems;
 
+    // Replaces boilerplate for most methods: posts a message to the GUI with a unique ID, and sets a callback for it.
+    #postMessageWithCallback = function(name, resolve, args = {}) {
+        const msg_id = this.#messageID++;
+        this.messageTarget?.postMessage({
+            msg: name,
+            env: this.env,
+            appInstanceID: this.appInstanceID,
+            uuid: msg_id,
+            ...args,
+        }, '*');
+        //register callback
+        this.#callbackFunctions[msg_id] = resolve;
+    }
+
     constructor (appInstanceID, appID, env) {
         this.appInstanceID = appInstanceID;
         this.appID = appID;
@@ -336,35 +350,13 @@ class UI{
 
     alert = function(message, buttons, options, callback) {
         return new Promise((resolve) => {
-            const msg_id = this.#messageID++;
-            this.messageTarget?.postMessage({
-                msg: "ALERT",
-                env: this.env,
-                message: message,
-                buttons: buttons,
-                options: options,
-                appInstanceID: this.appInstanceID,
-                uuid: msg_id
-            }, '*');
-            //register callback
-            this.#callbackFunctions[msg_id] = resolve;
+            this.#postMessageWithCallback('ALERT', resolve, { message, buttons, options });
         })
     }
 
     prompt = function(message, placeholder, options, callback) {
         return new Promise((resolve) => {
-            const msg_id = this.#messageID++;
-            this.messageTarget?.postMessage({
-                msg: "PROMPT",
-                message: message,
-                placeholder: placeholder,
-                options: options,
-                appInstanceID: this.appInstanceID,
-                uuid: msg_id,
-                env: this.env,
-            }, '*');
-            //register callback
-            this.#callbackFunctions[msg_id] = resolve;
+            this.#postMessageWithCallback('PROMPT', resolve, { message, placeholder, options });
         })
     }
 
@@ -423,34 +415,14 @@ class UI{
     }
 
     showFontPicker = function(options){
-
         return new Promise((resolve) => {
-            const msg_id = this.#messageID++;
-            this.messageTarget?.postMessage({
-                msg: "showFontPicker",
-                appInstanceID: this.appInstanceID,
-                options: options ?? {},
-                env: this.env,
-                uuid: msg_id,
-            }, '*');
-            //register callback
-            this.#callbackFunctions[msg_id] = resolve;
+            this.#postMessageWithCallback('showFontPicker', resolve, { options: options ?? {} });
         })
     }
 
     showColorPicker = function(options){
-
         return new Promise((resolve) => {
-            const msg_id = this.#messageID++;
-            this.messageTarget?.postMessage({
-                msg: "showColorPicker",
-                appInstanceID: this.appInstanceID,
-                options: options ?? {},
-                uuid: msg_id,
-                env: this.env,
-            }, '*');
-            //register callback
-            this.#callbackFunctions[msg_id] = resolve;
+            this.#postMessageWithCallback('showColorPicker', resolve, { options: options ?? {} });
         })
     }
 
@@ -508,73 +480,31 @@ class UI{
 
     setWindowTitle = function(title, callback) {
         return new Promise((resolve) => {
-            const msg_id = this.#messageID++;
-            this.messageTarget?.postMessage({
-                msg: "setWindowTitle",
-                new_title: title,
-                appInstanceID: this.appInstanceID,
-                uuid: msg_id
-            }, '*');
-            //register callback
-            this.#callbackFunctions[msg_id] = resolve;
+            this.#postMessageWithCallback('setWindowTitle', resolve, { new_title: title });
         })
     }
 
     setWindowWidth = function(width, callback) {
         return new Promise((resolve) => {
-            const msg_id = this.#messageID++;
-            this.messageTarget?.postMessage({
-                msg: "setWindowWidth",
-                width: width,
-                appInstanceID: this.appInstanceID,
-                uuid: msg_id
-            }, '*');
-            //register callback
-            this.#callbackFunctions[msg_id] = resolve;
+            this.#postMessageWithCallback('setWindowWidth', resolve, { width });
         })
     }
 
     setWindowHeight = function(height, callback) {
         return new Promise((resolve) => {
-            const msg_id = this.#messageID++;
-            this.messageTarget?.postMessage({
-                msg: "setWindowHeight",
-                height: height,
-                appInstanceID: this.appInstanceID,
-                uuid: msg_id
-            }, '*');
-            //register callback
-            this.#callbackFunctions[msg_id] = resolve;
+            this.#postMessageWithCallback('setWindowHeight', resolve, { height });
         })
     }
 
     setWindowSize = function(width, height, callback) {
         return new Promise((resolve) => {
-            const msg_id = this.#messageID++;
-            this.messageTarget?.postMessage({
-                msg: "setWindowSize",
-                width: width,
-                height: height,
-                appInstanceID: this.appInstanceID,
-                uuid: msg_id
-            }, '*');
-            //register callback
-            this.#callbackFunctions[msg_id] = resolve;
+            this.#postMessageWithCallback('setWindowSize', resolve, { width, height });
         })
     }
 
     setWindowPosition = function(x, y, callback) {
         return new Promise((resolve) => {
-            const msg_id = this.#messageID++;
-            this.messageTarget?.postMessage({
-                msg: "setWindowPosition",
-                x: x,
-                y: y,
-                appInstanceID: this.appInstanceID,
-                uuid: msg_id
-            }, '*');
-            //register callback
-            this.#callbackFunctions[msg_id] = resolve;
+            this.#postMessageWithCallback('setWindowPosition', resolve, { x, y });
         })
     }
 
@@ -713,39 +643,19 @@ class UI{
     
     launchApp = function(appName, args, callback) {
         return new Promise((resolve) => {
-            const msg_id = this.#messageID++;
             // if appName is an object and args is not set, then appName is actually args
             if (typeof appName === 'object' && !args) {
                 args = appName;
                 appName = undefined;
             }
 
-            // send message to parent
-            this.messageTarget?.postMessage({
-                msg: "launchApp",
-                app_name: appName,
-                args: args,
-                appInstanceID: this.appInstanceID,
-                uuid: msg_id,
-            }, '*');
-
-            //register callback
-            this.#callbackFunctions[msg_id] = resolve;
+            this.#postMessageWithCallback('launchApp', resolve, { app_name: appName, args });
         })
     }
 
     createWindow = function (options, callback) {
         return new Promise((resolve) => {
-            const msg_id = this.#messageID++;
-            this.messageTarget?.postMessage({
-                msg: "createWindow",
-                options: options ?? {},
-                appInstanceID: this.appInstanceID,
-                env: this.env,
-                uuid: msg_id
-            }, '*');
-            //register callback
-            this.#callbackFunctions[msg_id] = callback;
+            this.#postMessageWithCallback('createWindow', resolve, { options: options ?? {} });
         })
     }
 
