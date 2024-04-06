@@ -1,6 +1,91 @@
 import FSItem from './FSItem.js';
 import PuterDialog from './PuterDialog.js';
 
+// AppConnection provides an API for interacting with another app.
+// It's returned by UI methods, and cannot be constructed directly by user code.
+// For basic usage:
+// - postMessage(message)        Send a message to the target app
+// - on('message', callback)     Listen to messages from the target app
+class AppConnection {
+    static EVENTS = [
+        'message', // The target sent us something with postMessage()
+        // TODO: 'close' event when the target is closed
+    ];
+
+    // Map of eventName -> array of listeners
+    #eventListeners = (() => {
+        const map = new Map();
+        for (let eventName of AppConnection.EVENTS) {
+            map[eventName] = [];
+        }
+        return map;
+    })();
+
+    #emit(eventName, data) {
+        if (!AppConnection.EVENTS.includes(eventName)) {
+            console.error(`Event name '${eventName}' not supported`);
+            return;
+        }
+        this.#eventListeners[eventName].forEach((listener) => {
+            listener(data);
+        });
+    }
+
+    constructor(messageTarget, appInstanceID, targetAppInstanceID) {
+        this.messageTarget = messageTarget;
+        this.appInstanceID = appInstanceID;
+        this.targetAppInstanceID = targetAppInstanceID;
+
+        window.addEventListener('message', event => {
+            if (event.data.msg !== 'messageToApp') return;
+            if (event.data.appInstanceID !== this.targetAppInstanceID) {
+                // Message is from a different AppConnection; ignore it.
+                return;
+            }
+            if (event.data.targetAppInstanceID !== this.appInstanceID) {
+                console.error(`AppConnection received message intended for wrong app! appInstanceID=${this.appInstanceID}, target=${event.data.targetAppInstanceID}`);
+                return;
+            }
+            console.log(`AppConnection in ${this.appInstanceID} received message from ${event.data.appInstanceID}!`);
+            this.#emit('message', event.data.contents);
+        });
+    }
+
+    postMessage(message) {
+        console.log(`AppConnection in ${this.appInstanceID} sending message to ${this.targetAppInstanceID}!`);
+        this.messageTarget.postMessage({
+            msg: 'messageToApp',
+            appInstanceID: this.appInstanceID,
+            targetAppInstanceID: this.targetAppInstanceID,
+            targetAppOrigin: '*', // TODO: Specify this somehow
+            contents: message,
+        }, '*'); // TODO: Ensure targetOrigin is Puter GUI specifically?
+    }
+
+    // See AppConnection.EVENTS list for possible events
+    on(eventName, callback) {
+        if (!AppConnection.EVENTS.includes(eventName)) {
+            console.error(`Event name '${eventName}' not supported`);
+            return;
+        }
+        this.#eventListeners[eventName].push(callback);
+    }
+
+    off(eventName, callback) {
+        if (!AppConnection.EVENTS.includes(eventName)) {
+            console.error(`Event name '${eventName}' not supported`);
+            return;
+        }
+        const listeners = this.#eventListeners[eventName];
+        const index = listeners.indexOf(callback)
+        if (index !== -1) {
+            listeners.splice(index, 1);
+        }
+    }
+
+    // TODO: Implement close()
+}
+
 class UI{
     // Used to generate a unique message id for each message sent to the host environment
     // we start from 1 because 0 is falsy and we want to avoid that for the message id
@@ -12,6 +97,12 @@ class UI{
 
     // Holds the unique app instance ID that is provided by the host environment
     appInstanceID;
+
+    // Holds the unique app instance ID for the parent (if any), which is provided by the host environment
+    parentInstanceID;
+
+    // If we have a parent app, holds an AppConnection to it
+    #parentAppConnection = null;
 
     // Holds the callback functions for the various events 
     // that can be triggered by the host environment's messages.
@@ -26,8 +117,23 @@ class UI{
 
     #onLaunchedWithItems;
 
-    constructor (appInstanceID, appID, env) {
+    // Replaces boilerplate for most methods: posts a message to the GUI with a unique ID, and sets a callback for it.
+    #postMessageWithCallback = function(name, resolve, args = {}) {
+        const msg_id = this.#messageID++;
+        this.messageTarget?.postMessage({
+            msg: name,
+            env: this.env,
+            appInstanceID: this.appInstanceID,
+            uuid: msg_id,
+            ...args,
+        }, '*');
+        //register callback
+        this.#callbackFunctions[msg_id] = resolve;
+    }
+
+    constructor (appInstanceID, parentInstanceID, appID, env) {
         this.appInstanceID = appInstanceID;
+        this.parentInstanceID = parentInstanceID;
         this.appID = appID;
         this.env = env;
 
@@ -36,6 +142,10 @@ class UI{
         }
         else if(this.env === 'gui'){
             return;
+        }
+
+        if (this.parentInstanceID) {
+            this.#parentAppConnection = new AppConnection(this.messageTarget, this.appInstanceID, this.parentInstanceID);
         }
 
         // Tell the host environment that this app is using the Puter SDK and is ready to receive messages,
@@ -233,28 +343,32 @@ class UI{
                     }
                 }
                 else if(e.data.msg === 'colorPicked'){
-                    //excute callback
+                    // execute callback
                     this.#callbackFunctions[e.data.original_msg_id](e.data.color);
                 }
                 else if(e.data.msg === 'fontPicked'){
-                    //excute callback
+                    // execute callback
                     this.#callbackFunctions[e.data.original_msg_id](e.data.font); 
                 }
                 else if(e.data.msg === 'alertResponded'){
-                    //excute callback
+                    // execute callback
                     this.#callbackFunctions[e.data.original_msg_id](e.data.response); 
                 }
                 else if(e.data.msg === 'promptResponded'){
-                    //excute callback
+                    // execute callback
                     this.#callbackFunctions[e.data.original_msg_id](e.data.response); 
                 }
-
                 else if(e.data.msg === "fileSaved"){
-                    //excute callback
+                    // execute callback
                     this.#callbackFunctions[e.data.original_msg_id](new FSItem(e.data.saved_file)); 
                 }
+                else if (e.data.msg === 'childAppLaunched') {
+                    // execute callback with a new AppConnection to the child
+                    const connection = new AppConnection(this.messageTarget, this.appInstanceID, e.data.child_instance_id);
+                    this.#callbackFunctions[e.data.original_msg_id](connection);
+                }
                 else{
-                    //excute callback
+                    // execute callback
                     this.#callbackFunctions[e.data.original_msg_id](e.data);
                 }
 
@@ -336,35 +450,13 @@ class UI{
 
     alert = function(message, buttons, options, callback) {
         return new Promise((resolve) => {
-            const msg_id = this.#messageID++;
-            this.messageTarget?.postMessage({
-                msg: "ALERT",
-                env: this.env,
-                message: message,
-                buttons: buttons,
-                options: options,
-                appInstanceID: this.appInstanceID,
-                uuid: msg_id
-            }, '*');
-            //register callback
-            this.#callbackFunctions[msg_id] = resolve;
+            this.#postMessageWithCallback('ALERT', resolve, { message, buttons, options });
         })
     }
 
     prompt = function(message, placeholder, options, callback) {
         return new Promise((resolve) => {
-            const msg_id = this.#messageID++;
-            this.messageTarget?.postMessage({
-                msg: "PROMPT",
-                message: message,
-                placeholder: placeholder,
-                options: options,
-                appInstanceID: this.appInstanceID,
-                uuid: msg_id,
-                env: this.env,
-            }, '*');
-            //register callback
-            this.#callbackFunctions[msg_id] = resolve;
+            this.#postMessageWithCallback('PROMPT', resolve, { message, placeholder, options });
         })
     }
 
@@ -423,34 +515,14 @@ class UI{
     }
 
     showFontPicker = function(options){
-
         return new Promise((resolve) => {
-            const msg_id = this.#messageID++;
-            this.messageTarget?.postMessage({
-                msg: "showFontPicker",
-                appInstanceID: this.appInstanceID,
-                options: options ?? {},
-                env: this.env,
-                uuid: msg_id,
-            }, '*');
-            //register callback
-            this.#callbackFunctions[msg_id] = resolve;
+            this.#postMessageWithCallback('showFontPicker', resolve, { options: options ?? {} });
         })
     }
 
     showColorPicker = function(options){
-
         return new Promise((resolve) => {
-            const msg_id = this.#messageID++;
-            this.messageTarget?.postMessage({
-                msg: "showColorPicker",
-                appInstanceID: this.appInstanceID,
-                options: options ?? {},
-                uuid: msg_id,
-                env: this.env,
-            }, '*');
-            //register callback
-            this.#callbackFunctions[msg_id] = resolve;
+            this.#postMessageWithCallback('showColorPicker', resolve, { options: options ?? {} });
         })
     }
 
@@ -508,73 +580,31 @@ class UI{
 
     setWindowTitle = function(title, callback) {
         return new Promise((resolve) => {
-            const msg_id = this.#messageID++;
-            this.messageTarget?.postMessage({
-                msg: "setWindowTitle",
-                new_title: title,
-                appInstanceID: this.appInstanceID,
-                uuid: msg_id
-            }, '*');
-            //register callback
-            this.#callbackFunctions[msg_id] = resolve;
+            this.#postMessageWithCallback('setWindowTitle', resolve, { new_title: title });
         })
     }
 
     setWindowWidth = function(width, callback) {
         return new Promise((resolve) => {
-            const msg_id = this.#messageID++;
-            this.messageTarget?.postMessage({
-                msg: "setWindowWidth",
-                width: width,
-                appInstanceID: this.appInstanceID,
-                uuid: msg_id
-            }, '*');
-            //register callback
-            this.#callbackFunctions[msg_id] = resolve;
+            this.#postMessageWithCallback('setWindowWidth', resolve, { width });
         })
     }
 
     setWindowHeight = function(height, callback) {
         return new Promise((resolve) => {
-            const msg_id = this.#messageID++;
-            this.messageTarget?.postMessage({
-                msg: "setWindowHeight",
-                height: height,
-                appInstanceID: this.appInstanceID,
-                uuid: msg_id
-            }, '*');
-            //register callback
-            this.#callbackFunctions[msg_id] = resolve;
+            this.#postMessageWithCallback('setWindowHeight', resolve, { height });
         })
     }
 
     setWindowSize = function(width, height, callback) {
         return new Promise((resolve) => {
-            const msg_id = this.#messageID++;
-            this.messageTarget?.postMessage({
-                msg: "setWindowSize",
-                width: width,
-                height: height,
-                appInstanceID: this.appInstanceID,
-                uuid: msg_id
-            }, '*');
-            //register callback
-            this.#callbackFunctions[msg_id] = resolve;
+            this.#postMessageWithCallback('setWindowSize', resolve, { width, height });
         })
     }
 
     setWindowPosition = function(x, y, callback) {
         return new Promise((resolve) => {
-            const msg_id = this.#messageID++;
-            this.messageTarget?.postMessage({
-                msg: "setWindowPosition",
-                x: x,
-                y: y,
-                appInstanceID: this.appInstanceID,
-                uuid: msg_id
-            }, '*');
-            //register callback
-            this.#callbackFunctions[msg_id] = resolve;
+            this.#postMessageWithCallback('setWindowPosition', resolve, { x, y });
         })
     }
 
@@ -710,42 +740,27 @@ class UI{
             }
         });
     }
-    
+
+    // Returns a Promise<AppConnection>
     launchApp = function(appName, args, callback) {
         return new Promise((resolve) => {
-            const msg_id = this.#messageID++;
             // if appName is an object and args is not set, then appName is actually args
             if (typeof appName === 'object' && !args) {
                 args = appName;
                 appName = undefined;
             }
 
-            // send message to parent
-            this.messageTarget?.postMessage({
-                msg: "launchApp",
-                app_name: appName,
-                args: args,
-                appInstanceID: this.appInstanceID,
-                uuid: msg_id,
-            }, '*');
-
-            //register callback
-            this.#callbackFunctions[msg_id] = resolve;
+            this.#postMessageWithCallback('launchApp', resolve, { app_name: appName, args });
         })
+    }
+
+    parentApp() {
+        return this.#parentAppConnection;
     }
 
     createWindow = function (options, callback) {
         return new Promise((resolve) => {
-            const msg_id = this.#messageID++;
-            this.messageTarget?.postMessage({
-                msg: "createWindow",
-                options: options ?? {},
-                appInstanceID: this.appInstanceID,
-                env: this.env,
-                uuid: msg_id
-            }, '*');
-            //register callback
-            this.#callbackFunctions[msg_id] = callback;
+            this.#postMessageWithCallback('createWindow', resolve, { options: options ?? {} });
         })
     }
 
