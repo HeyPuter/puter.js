@@ -46,7 +46,7 @@ class AppConnection extends EventListener {
     // TODO: Implement close()
 }
 
-class UI{
+class UI extends EventListener {
     // Used to generate a unique message id for each message sent to the host environment
     // we start from 1 because 0 is falsy and we want to avoid that for the message id
     #messageID = 1;
@@ -77,6 +77,12 @@ class UI{
 
     #onLaunchedWithItems;
 
+    // List of events that can be listened to.
+    #eventNames;
+
+    // The most recent value that we received for a given broadcast, by name.
+    #lastBroadcastValue = new Map(); // name -> data
+
     // Replaces boilerplate for most methods: posts a message to the GUI with a unique ID, and sets a callback for it.
     #postMessageWithCallback = function(name, resolve, args = {}) {
         const msg_id = this.#messageID++;
@@ -92,6 +98,12 @@ class UI{
     }
 
     constructor (appInstanceID, parentInstanceID, appID, env) {
+        const eventNames = [
+            'localeChanged',
+            'themeChanged',
+        ];
+        super(eventNames);
+        this.#eventNames = eventNames;
         this.appInstanceID = appInstanceID;
         this.parentInstanceID = parentInstanceID;
         this.appID = appID;
@@ -340,6 +352,15 @@ class UI{
                 //excute callback
                 if(itemWatchCallbackFunctions[e.data.data.uid] && typeof itemWatchCallbackFunctions[e.data.data.uid] === 'function')
                     itemWatchCallbackFunctions[e.data.data.uid](e.data.data);
+            }
+            // Broadcasts
+            else if (e.data.msg === 'broadcast') {
+                const { name, data } = e.data;
+                if (!this.#eventNames.includes(name)) {
+                    return;
+                }
+                this.emit(name, data);
+                this.#lastBroadcastValue.set(name, data);
             }
         });
     }
@@ -946,6 +967,14 @@ class UI{
                 e.target.dispatchEvent(new Event('mousedown'));
             }
         }))
+    }
+
+    on(eventName, callback) {
+        super.on(eventName, callback);
+        // If we already received a broadcast for this event, run the callback immediately
+        if (this.#eventNames.includes(eventName) && this.#lastBroadcastValue.has(eventName)) {
+            callback(this.#lastBroadcastValue.get(eventName));
+        }
     }
 }
 
