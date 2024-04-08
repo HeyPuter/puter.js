@@ -1,37 +1,18 @@
 import FSItem from './FSItem.js';
 import PuterDialog from './PuterDialog.js';
+import EventListener  from '../lib/EventListener.js';
 
 // AppConnection provides an API for interacting with another app.
 // It's returned by UI methods, and cannot be constructed directly by user code.
 // For basic usage:
 // - postMessage(message)        Send a message to the target app
 // - on('message', callback)     Listen to messages from the target app
-class AppConnection {
-    static EVENTS = [
-        'message', // The target sent us something with postMessage()
-        // TODO: 'close' event when the target is closed
-    ];
-
-    // Map of eventName -> array of listeners
-    #eventListeners = (() => {
-        const map = new Map();
-        for (let eventName of AppConnection.EVENTS) {
-            map[eventName] = [];
-        }
-        return map;
-    })();
-
-    #emit(eventName, data) {
-        if (!AppConnection.EVENTS.includes(eventName)) {
-            console.error(`Event name '${eventName}' not supported`);
-            return;
-        }
-        this.#eventListeners[eventName].forEach((listener) => {
-            listener(data);
-        });
-    }
-
+class AppConnection extends EventListener {
     constructor(messageTarget, appInstanceID, targetAppInstanceID) {
+        super([
+            'message', // The target sent us something with postMessage()
+            // TODO: 'close' event when the target is closed
+        ]);
         this.messageTarget = messageTarget;
         this.appInstanceID = appInstanceID;
         this.targetAppInstanceID = targetAppInstanceID;
@@ -47,7 +28,7 @@ class AppConnection {
                 return;
             }
             console.log(`AppConnection in ${this.appInstanceID} received message from ${event.data.appInstanceID}!`);
-            this.#emit('message', event.data.contents);
+            this.emit('message', event.data.contents);
         });
     }
 
@@ -60,27 +41,6 @@ class AppConnection {
             targetAppOrigin: '*', // TODO: Specify this somehow
             contents: message,
         }, '*'); // TODO: Ensure targetOrigin is Puter GUI specifically?
-    }
-
-    // See AppConnection.EVENTS list for possible events
-    on(eventName, callback) {
-        if (!AppConnection.EVENTS.includes(eventName)) {
-            console.error(`Event name '${eventName}' not supported`);
-            return;
-        }
-        this.#eventListeners[eventName].push(callback);
-    }
-
-    off(eventName, callback) {
-        if (!AppConnection.EVENTS.includes(eventName)) {
-            console.error(`Event name '${eventName}' not supported`);
-            return;
-        }
-        const listeners = this.#eventListeners[eventName];
-        const index = listeners.indexOf(callback)
-        if (index !== -1) {
-            listeners.splice(index, 1);
-        }
     }
 
     // TODO: Implement close()
