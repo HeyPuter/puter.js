@@ -8,6 +8,9 @@ import EventListener  from '../lib/EventListener.js';
 // - postMessage(message)        Send a message to the target app
 // - on('message', callback)     Listen to messages from the target app
 class AppConnection extends EventListener {
+    // targetOrigin for postMessage() calls to Puter
+    #puterOrigin = '*';
+
     // Whether the target app is open
     #isOpen;
 
@@ -20,6 +23,8 @@ class AppConnection extends EventListener {
         this.appInstanceID = appInstanceID;
         this.targetAppInstanceID = targetAppInstanceID;
         this.#isOpen = true;
+
+        // TODO: Set this.#puterOrigin to the puter origin
 
         window.addEventListener('message', event => {
             if (event.data.msg === 'messageToApp') {
@@ -63,10 +68,22 @@ class AppConnection extends EventListener {
             targetAppInstanceID: this.targetAppInstanceID,
             targetAppOrigin: '*', // TODO: Specify this somehow
             contents: message,
-        }, '*'); // TODO: Ensure targetOrigin is Puter GUI specifically?
+        }, this.#puterOrigin);
     }
 
-    // TODO: Implement close()
+    // Attempt to close the target application
+    close() {
+        if (!this.#isOpen) {
+            console.warn('Trying to close an app on a closed AppConnection');
+            return;
+        }
+
+        this.messageTarget.postMessage({
+            msg: 'closeApp',
+            appInstanceID: this.appInstanceID,
+            targetAppInstanceID: this.targetAppInstanceID,
+        }, this.#puterOrigin);
+    }
 }
 
 class UI extends EventListener {
