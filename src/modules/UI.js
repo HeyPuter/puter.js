@@ -8,24 +8,43 @@ import EventListener  from '../lib/EventListener.js';
 // - postMessage(message)        Send a message to the target app
 // - on('message', callback)     Listen to messages from the target app
 class AppConnection extends EventListener {
+    // Whether the target app is open
+    #isOpen;
+
     constructor(messageTarget, appInstanceID, targetAppInstanceID) {
         super([
             'message', // The target sent us something with postMessage()
-            // TODO: 'close' event when the target is closed
+            'close',   // The target app was closed
         ]);
         this.messageTarget = messageTarget;
         this.appInstanceID = appInstanceID;
         this.targetAppInstanceID = targetAppInstanceID;
+        this.#isOpen = true;
 
         window.addEventListener('message', event => {
-            if (event.data.msg !== 'messageToApp') return;
-            if (event.data.appInstanceID !== this.targetAppInstanceID) {
-                // Message is from a different AppConnection; ignore it.
+            if (event.data.msg === 'messageToApp') {
+                if (event.data.appInstanceID !== this.targetAppInstanceID) {
+                    // Message is from a different AppConnection; ignore it.
+                    return;
+                }
+                if (event.data.targetAppInstanceID !== this.appInstanceID) {
+                    console.error(`AppConnection received message intended for wrong app! appInstanceID=${this.appInstanceID}, target=${event.data.targetAppInstanceID}`);
+                    return;
+                }
+                this.emit('message', event.data.contents);
                 return;
             }
-            if (event.data.targetAppInstanceID !== this.appInstanceID) {
-                console.error(`AppConnection received message intended for wrong app! appInstanceID=${this.appInstanceID}, target=${event.data.targetAppInstanceID}`);
-                return;
+
+            if (event.data.msg === 'appClosed') {
+                if (event.data.appInstanceID !== this.targetAppInstanceID) {
+                    // Message is from a different AppConnection; ignore it.
+                    return;
+                }
+
+                this.#isOpen = false;
+                this.emit('close', {
+                    appInstanceID: this.targetAppInstanceID,
+                });
             }
             console.log(`AppConnection in ${this.appInstanceID} received message from ${event.data.appInstanceID}!`);
             this.emit('message', event.data.contents);
@@ -33,7 +52,11 @@ class AppConnection extends EventListener {
     }
 
     postMessage(message) {
-        console.log(`AppConnection in ${this.appInstanceID} sending message to ${this.targetAppInstanceID}!`);
+        if (!this.#isOpen) {
+            console.warn('Trying to post message on a closed AppConnection');
+            return;
+        }
+
         this.messageTarget.postMessage({
             msg: 'messageToApp',
             appInstanceID: this.appInstanceID,
