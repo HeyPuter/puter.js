@@ -51,8 +51,6 @@ class AppConnection extends EventListener {
                     appInstanceID: this.targetAppInstanceID,
                 });
             }
-            console.log(`AppConnection in ${this.appInstanceID} received message from ${event.data.appInstanceID}!`);
-            this.emit('message', event.data.contents);
         });
     }
 
