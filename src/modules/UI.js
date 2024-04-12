@@ -121,6 +121,14 @@ class UI extends EventListener {
     // The most recent value that we received for a given broadcast, by name.
     #lastBroadcastValue = new Map(); // name -> data
 
+    // Sent as the `windowConfig` field of the READY message.
+    #windowConfig = {
+        headless: false,
+    };
+
+    // Whether we've sent the READY message.
+    #readyMessageSent = false;
+
     // Replaces boilerplate for most methods: posts a message to the GUI with a unique ID, and sets a callback for it.
     #postMessageWithCallback = function(name, resolve, args = {}) {
         const msg_id = this.#messageID++;
@@ -160,10 +168,14 @@ class UI extends EventListener {
 
         // Tell the host environment that this app is using the Puter SDK and is ready to receive messages,
         // this will allow the OS to send custom messages to the app
-        this.messageTarget?.postMessage({
-            msg: "READY",
-            appInstanceID: this.appInstanceID,
-        }, '*');
+        document.addEventListener('DOMContentLoaded', () => {
+            this.messageTarget?.postMessage({
+                msg: "READY",
+                appInstanceID: this.appInstanceID,
+                windowConfig: this.#windowConfig,
+            }, '*');
+            this.#readyMessageSent = true;
+        });
 
         // When this app's window is focused send a message to the host environment
         window.addEventListener('focus', (e) => {
@@ -401,6 +413,18 @@ class UI extends EventListener {
                 this.#lastBroadcastValue.set(name, data);
             }
         });
+    }
+
+    // Available options:
+    // - headless: Run app with no visible window
+    configureWindow = function(options) {
+        if (this.#readyMessageSent) {
+            throw new Error('Window configuration has already been sent; this call to puter.ui.configureWindow will have no effect! ' +
+                'Make sure to call it before the DOMContentLoaded event.');
+        }
+        this.#windowConfig = {
+            headless: options?.headless ?? false,
+        };
     }
 
     onWindowClose = function(callback) {
