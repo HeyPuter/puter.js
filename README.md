@@ -1,7 +1,9 @@
 # Important Notice
 
-We are moving this repository into the
+puter.js has been moved to the
 [Puter repository](https://github.com/HeyPuter/puter.js)
+
+<hr />
 
 <h3 align="center">Puter.js</h3>
 <h4 align="center">The official JavaScript SDK for Puter.com. Cloud and AI features right from your frontend code!</h4>
