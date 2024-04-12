@@ -1,7 +1,7 @@
 # Important Notice
 
 puter.js has been moved to the
-[Puter repository](https://github.com/HeyPuter/puter.js)
+[Puter repository](https://github.com/HeyPuter/puter)
 
 <hr />
 
